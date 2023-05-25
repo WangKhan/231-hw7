@@ -90,9 +90,40 @@ pub unsafe fn snek_gc(
     curr_rbp: *const u64,
     curr_rsp: *const u64,
 ) -> *const u64 {
+    scan_stack(stack_base, curr_rbp, curr_rsp);
     heap_ptr
 }
 
+fn check_valid_addr(val: u64) -> bool {
+    if val & 0xFFFF == 0x0001{
+        if val == 0x0001 {
+            return false;
+        } else {
+            return true;
+        }
+    } else {
+        return false;
+    }
+}
+
+unsafe fn scan_stack(stack_base: *const u64, curr_rbp: *const u64, curr_rsp: *const u64) {
+    let mut ptr = stack_base;
+    while ptr >= curr_rsp {
+        let val = *ptr;
+        if check_valid_addr(val){
+            mark
+        }
+        ptr = ptr.sub(1);
+    }
+}
+unsafe fn mark(val: u64) {
+    let heap_addr = val - 1;
+    let sign: u64 = *heap_addr;
+    if sign != 0 {
+        return;
+    }
+    *heap_addr = 1;
+}
 /// A helper function that can called with the `(snek-printstack)` snek function. It prints the stack
 /// See [`snek_try_gc`] for a description of the meaning of the arguments.
 #[export_name = "\x01snek_print_stack"]
@@ -157,12 +188,14 @@ fn main() {
     let heap_size = parse_heap_size(&heap_size);
 
     // Initialize heap
-    let mut heap: Vec<u64> = Vec::with_capacity(heap_size);
-    unsafe {
-        HEAP_START = heap.as_mut_ptr();
-        HEAP_END = HEAP_START.add(heap_size);
-    }
 
-    let i: u64 = unsafe { our_code_starts_here(input, HEAP_START, HEAP_END) };
-    unsafe { snek_print(i) };
+    // let mut heap: Vec<u64> = Vec::with_capacity(heap_size);
+    // unsafe {
+    //     HEAP_START = heap.as_mut_ptr();
+    //     HEAP_END = HEAP_START.add(heap_size);
+    // }
+
+    // let i: u64 = unsafe { our_code_starts_here(input, HEAP_START, HEAP_END) };
+    // unsafe { snek_print(i) };
+    print!("{:?}", check_valid_addr(val));
 }
