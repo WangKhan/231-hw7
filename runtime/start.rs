@@ -77,8 +77,16 @@ pub unsafe fn snek_try_gc(
     curr_rbp: *const u64,
     curr_rsp: *const u64,
 ) -> *const u64 {
-    eprintln!("out of memory");
-    std::process::exit(ErrCode::OutOfMemory as i32)
+    let new_heap_ptr = snek_gc(heap_ptr, stack_base,curr_rbp, curr_rsp);
+    let new_heap_addr = new_heap_ptr as isize;
+    let end = (new_heap_addr + count) as *const u64;
+    if (end >= HEAP_END) {
+        eprintln!("out of memory");
+        std::process::exit(ErrCode::OutOfMemory as i32)
+    } else {
+        return new_heap_ptr;
+    }
+    
 }
 
 /// This function should trigger garbage collection and return the updated heap pointer (i.e., the new
@@ -90,13 +98,16 @@ pub unsafe fn snek_gc(
     curr_rbp: *const u64,
     curr_rsp: *const u64,
 ) -> *const u64 {
+    println!("begin collection");
     scan_stack(stack_base, curr_rbp, curr_rsp);
-    heap_ptr
+    println!("end collection");
+    let new_heap_ptr = compact(heap_ptr);
+    new_heap_ptr
 }
 
 fn check_valid_addr(val: u64) -> bool {
-    if val & 0xFFFF == 0x0001{
-        if val == 0x0001 {
+    if val & 0b001 == 1{
+        if val == 1 {
             return false;
         } else {
             return true;
@@ -107,22 +118,119 @@ fn check_valid_addr(val: u64) -> bool {
 }
 
 unsafe fn scan_stack(stack_base: *const u64, curr_rbp: *const u64, curr_rsp: *const u64) {
+    println!("begin scan");
     let mut ptr = stack_base;
     while ptr >= curr_rsp {
         let val = *ptr;
+        println!("{}, {:#0x}", check_valid_addr(val), val);
         if check_valid_addr(val){
-            mark
+            println!("begin mark");
+            mark(val);
         }
         ptr = ptr.sub(1);
     }
 }
 unsafe fn mark(val: u64) {
-    let heap_addr = val - 1;
+    let mut heap_addr: *mut u64 = (val - 1) as *mut u64;
+    println!("{:?}", val);
     let sign: u64 = *heap_addr;
     if sign != 0 {
         return;
     }
     *heap_addr = 1;
+    heap_addr = heap_addr.add(1);
+    let length = *heap_addr;
+    for i in 1..=length {
+        heap_addr = heap_addr.add(1);
+        let val = *heap_addr;
+        if check_valid_addr(val) {
+            mark(val);
+        }
+    }
+}
+
+unsafe fn compact(cur_heap_top: *const u64) -> *const u64{
+    forward(cur_heap_top);
+    update(cur_heap_top);
+    let new_heap_ptr = mov(cur_heap_top);
+    new_heap_ptr
+}
+unsafe fn forward(cur_heap_top: *const u64) {
+    let mut forward_ptr: *mut u64 = HEAP_START as *mut u64;
+    let mut scan_ptr: *mut u64 = HEAP_START as *mut u64;
+    let mut cur_heap: *mut u64 = cur_heap_top as *mut u64;
+    while scan_ptr < cur_heap {
+        let sign = *scan_ptr;
+        if sign != 0 {
+            let forward_addr: u64 = forward_ptr as u64;
+            *scan_ptr = forward_addr;
+            scan_ptr = scan_ptr.add(1);
+            let length = *scan_ptr as usize;
+            forward_ptr = forward_ptr.add(length + 2);
+            scan_ptr = scan_ptr.add(length + 1);
+        } else {
+            scan_ptr = scan_ptr.add(1);
+            let length = *scan_ptr as usize;
+            scan_ptr = scan_ptr.add(length + 1);
+        }
+    }
+}
+unsafe fn update(cur_heap_top: *const u64) {
+    let mut scan_ptr: *mut u64 = HEAP_START as *mut u64;
+    let mut cur_heap: *mut u64 = cur_heap_top as *mut u64;
+    while scan_ptr < cur_heap {
+        let sign = *scan_ptr;
+        scan_ptr = scan_ptr.add(1);
+        let length = *scan_ptr as usize;
+        if sign != 0 {
+            for i in 1..=length {
+                scan_ptr = scan_ptr.add(1);
+                let val = *scan_ptr;
+                if check_valid_addr(val) {
+                    let addr: *const u64 = (val - 1) as *const u64;
+                    let new_ref = *addr;
+                    *scan_ptr = new_ref + 1;
+                }
+            }
+            scan_ptr = scan_ptr.add(1);
+        } else {
+            scan_ptr = scan_ptr.add(length + 1);
+        }
+    }
+}
+
+unsafe fn mov(cur_heap_top: *const u64) -> *const u64{
+    let mut write_ptr: *mut u64 = HEAP_START as *mut u64;
+    let mut scan_ptr: *mut u64 = HEAP_START as *mut u64;
+    let mut cur_heap: *mut u64 = cur_heap_top as *mut u64;
+    while scan_ptr < cur_heap {
+        let sign = *scan_ptr;
+        if sign != 0 {
+            write_ptr = sign as *mut u64;
+            *write_ptr = 0;
+            write_ptr = write_ptr.add(1);
+            scan_ptr = scan_ptr.add(1);
+            let length = *scan_ptr;
+            *write_ptr = length;
+            for i in 1..=length {
+                scan_ptr = scan_ptr.add(1);
+                write_ptr = write_ptr.add(1);
+                *write_ptr = *scan_ptr;
+            }
+            scan_ptr = scan_ptr.add(1);
+            write_ptr = write_ptr.add(1);
+            let val = write_ptr as u64;
+            println!("{:#0x}", val);
+        } else {
+            scan_ptr = scan_ptr.add(1);
+            let length = *scan_ptr as usize;
+            scan_ptr = scan_ptr.add(length + 1);
+        }
+    }
+    let val = write_ptr as u64;
+    println!("{:#0x}", val);
+    let new_heap_ptr = write_ptr as *const u64;
+    new_heap_ptr
 }
 /// A helper function that can called with the `(snek-printstack)` snek function. It prints the stack
 /// See [`snek_try_gc`] for a description of the meaning of the arguments.
@@ -134,6 +242,18 @@ pub unsafe fn snek_print_stack(stack_base: *const u64, curr_rbp: *const u64, cur
         let val = *ptr;
         println!("{ptr:?}: {:#0x}", val);
         ptr = ptr.sub(1);
+    }
+    println!("-----------------------------------------");
+}
+
+#[export_name = "\x01snek_print_heap"]
+pub unsafe fn snek_print_heap(heap_ptr: *const u64) {
+    let mut ptr = HEAP_START;
+    println!("-----------------------------------------");
+    while ptr < heap_ptr {
+        let val = *ptr;
+        println!("{ptr:?}: {:#0x}", val);
+        ptr = ptr.add(1);
     }
     println!("-----------------------------------------");
 }
@@ -189,13 +309,12 @@ fn main() {
 
     // Initialize heap
 
-    // let mut heap: Vec<u64> = Vec::with_capacity(heap_size);
-    // unsafe {
-    //     HEAP_START = heap.as_mut_ptr();
-    //     HEAP_END = HEAP_START.add(heap_size);
-    // }
+    let mut heap: Vec<u64> = Vec::with_capacity(heap_size);
+    unsafe {
+        HEAP_START = heap.as_mut_ptr();
+        HEAP_END = HEAP_START.add(heap_size);
+    }
 
-    // let i: u64 = unsafe { our_code_starts_here(input, HEAP_START, HEAP_END) };
-    // unsafe { snek_print(i) };
-    print!("{:?}", check_valid_addr(val));
+    let i: u64 = unsafe { our_code_starts_here(input, HEAP_START, HEAP_END) };
+    unsafe { snek_print(i) };
 }
