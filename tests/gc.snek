@@ -4,4 +4,4 @@
         (set! x (vec nil y nil))
         (set! y nil)
         (snek-printstack)
-        (gc)))
+        ))

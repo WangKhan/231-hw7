@@ -77,10 +77,15 @@ pub unsafe fn snek_try_gc(
     curr_rbp: *const u64,
     curr_rsp: *const u64,
 ) -> *const u64 {
+    snek_print_heap(heap_ptr);
     let new_heap_ptr = snek_gc(heap_ptr, stack_base,curr_rbp, curr_rsp);
     let new_heap_addr = new_heap_ptr as isize;
-    let end = (new_heap_addr + count) as *const u64;
-    if (end >= HEAP_END) {
+    let end = (new_heap_addr + count * 8) as *const u64;
+    println!("{:0x}, {:?}, {:?}", new_heap_addr, count, end);
+    let end_val = HEAP_END as u64;
+    println!("{:0x}", end_val);
+    std::process::exit(ErrCode::OutOfMemory as i32);
+    if end >= HEAP_END {
         eprintln!("out of memory");
         std::process::exit(ErrCode::OutOfMemory as i32)
     } else {
@@ -100,13 +105,15 @@ pub unsafe fn snek_gc(
 ) -> *const u64 {
     println!("begin collection");
     scan_stack(stack_base, curr_rbp, curr_rsp);
+    snek_print_heap(heap_ptr);
     println!("end collection");
     let new_heap_ptr = compact(heap_ptr);
+    snek_print_heap(new_heap_ptr);
     new_heap_ptr
 }
 
 fn check_valid_addr(val: u64) -> bool {
-    if val & 0b001 == 1{
+    if val & 0b111 == 1{
         if val == 1 {
             return false;
         } else {
@@ -132,7 +139,7 @@ unsafe fn scan_stack(stack_base: *const u64, curr_rbp: *const u64, curr_rsp: *co
 }
 unsafe fn mark(val: u64) {
     let mut heap_addr: *mut u64 = (val - 1) as *mut u64;
-    println!("{:?}", val);
+    println!("{:0x}", val);
     let sign: u64 = *heap_addr;
     if sign != 0 {
         return;
@@ -140,10 +147,12 @@ unsafe fn mark(val: u64) {
     *heap_addr = 1;
     heap_addr = heap_addr.add(1);
     let length = *heap_addr;
+    println!("{:?}", length);
     for i in 1..=length {
         heap_addr = heap_addr.add(1);
         let val = *heap_addr;
         if check_valid_addr(val) {
+            println!("{:?}", val);
             mark(val);
         }
     }
