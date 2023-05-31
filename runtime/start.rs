@@ -249,7 +249,7 @@ unsafe fn mov(cur_heap_top: *const u64) -> *const u64{
         }
     }
     let val = write_ptr as u64;
-    println!("{:#0x}", val);
+    // println!("{:#0x}", val);
     let new_heap_ptr = write_ptr as *const u64;
     new_heap_ptr
 }
