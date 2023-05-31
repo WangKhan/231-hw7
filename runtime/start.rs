@@ -102,11 +102,11 @@ pub unsafe extern "C" fn snek_gc(
     curr_rbp: *const u64,
     curr_rsp: *const u64,
 ) -> *const u64 {
-    println!("begin collection");
+    // println!("begin collection");
     scan_stack(stack_base, curr_rbp, curr_rsp);
     // snek_print_heap(heap_ptr);
     // snek_print_stack(stack_base, curr_rbp, curr_rsp);
-    println!("end collection");
+    // println!("end collection");
     let new_heap_ptr = compact(heap_ptr, curr_rsp, stack_base);
     // snek_print_heap(new_heap_ptr);
     new_heap_ptr
