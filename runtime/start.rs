@@ -84,14 +84,13 @@ pub unsafe fn snek_try_gc(
     println!("{:0x}, {:?}, {:?}", new_heap_addr, count, end);
     let end_val = HEAP_END as u64;
     println!("{:0x}", end_val);
-    std::process::exit(ErrCode::OutOfMemory as i32);
+    // std::process::exit(ErrCode::OutOfMemory as i32);
     if end >= HEAP_END {
         eprintln!("out of memory");
         std::process::exit(ErrCode::OutOfMemory as i32)
     } else {
         return new_heap_ptr;
     }
-    
 }
 
 /// This function should trigger garbage collection and return the updated heap pointer (i.e., the new
@@ -125,13 +124,12 @@ fn check_valid_addr(val: u64) -> bool {
 }
 
 unsafe fn scan_stack(stack_base: *const u64, curr_rbp: *const u64, curr_rsp: *const u64) {
-    println!("begin scan");
     let mut ptr = stack_base;
-    while ptr >= curr_rsp {
+    // bigger or bigger and equal?
+    while ptr > curr_rsp {
         let val = *ptr;
         println!("{}, {:#0x}", check_valid_addr(val), val);
         if check_valid_addr(val){
-            println!("begin mark");
             mark(val);
         }
         ptr = ptr.sub(1);
@@ -139,7 +137,6 @@ unsafe fn scan_stack(stack_base: *const u64, curr_rbp: *const u64, curr_rsp: *co
 }
 unsafe fn mark(val: u64) {
     let mut heap_addr: *mut u64 = (val - 1) as *mut u64;
-    println!("{:0x}", val);
     let sign: u64 = *heap_addr;
     if sign != 0 {
         return;
@@ -147,12 +144,10 @@ unsafe fn mark(val: u64) {
     *heap_addr = 1;
     heap_addr = heap_addr.add(1);
     let length = *heap_addr;
-    println!("{:?}", length);
     for i in 1..=length {
         heap_addr = heap_addr.add(1);
         let val = *heap_addr;
         if check_valid_addr(val) {
-            println!("{:?}", val);
             mark(val);
         }
     }
