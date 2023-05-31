@@ -77,13 +77,13 @@ pub unsafe fn snek_try_gc(
     curr_rbp: *const u64,
     curr_rsp: *const u64,
 ) -> *const u64 {
-    snek_print_heap(heap_ptr);
+    // snek_print_heap(heap_ptr);
     let new_heap_ptr = snek_gc(heap_ptr, stack_base,curr_rbp, curr_rsp);
     let new_heap_addr = new_heap_ptr as isize;
     let end = (new_heap_addr + count * 8) as *const u64;
-    println!("{:0x}, {:?}, {:?}", new_heap_addr, count, end);
+    // println!("{:0x}, {:?}, {:?}", new_heap_addr, count, end);
     let end_val = HEAP_END as u64;
-    println!("{:0x}", end_val);
+    // println!("{:0x}", end_val);
     // std::process::exit(ErrCode::OutOfMemory as i32);
     if end >= HEAP_END {
         eprintln!("out of memory");
@@ -102,12 +102,12 @@ pub unsafe fn snek_gc(
     curr_rbp: *const u64,
     curr_rsp: *const u64,
 ) -> *const u64 {
-    println!("begin collection");
+    // println!("begin collection");
     scan_stack(stack_base, curr_rbp, curr_rsp);
-    snek_print_heap(heap_ptr);
-    println!("end collection");
+    // snek_print_heap(heap_ptr);
+    // println!("end collection");
     let new_heap_ptr = compact(heap_ptr);
-    snek_print_heap(new_heap_ptr);
+    // snek_print_heap(new_heap_ptr);
     new_heap_ptr
 }
 
@@ -128,7 +128,7 @@ unsafe fn scan_stack(stack_base: *const u64, curr_rbp: *const u64, curr_rsp: *co
     // bigger or bigger and equal?
     while ptr > curr_rsp {
         let val = *ptr;
-        println!("{}, {:#0x}", check_valid_addr(val), val);
+        // println!("{}, {:#0x}", check_valid_addr(val), val);
         if check_valid_addr(val){
             mark(val);
         }
@@ -224,7 +224,7 @@ unsafe fn mov(cur_heap_top: *const u64) -> *const u64{
             scan_ptr = scan_ptr.add(1);
             write_ptr = write_ptr.add(1);
             let val = write_ptr as u64;
-            println!("{:#0x}", val);
+            // println!("{:#0x}", val);
         } else {
             scan_ptr = scan_ptr.add(1);
             let length = *scan_ptr as usize;
