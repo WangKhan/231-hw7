@@ -127,7 +127,7 @@ unsafe fn check_valid_addr(val: u64) -> bool {
 unsafe fn scan_stack(stack_base: *const u64, curr_rbp: *const u64, curr_rsp: *const u64) {
     let mut ptr = stack_base;
     // bigger or bigger and equal?
-    while ptr > curr_rsp {
+    while ptr >= curr_rsp {
         let val = *ptr;
         // println!("{}, {:#0x}", check_valid_addr(val), val);
         if check_valid_addr(val){
