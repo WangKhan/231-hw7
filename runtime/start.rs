@@ -70,7 +70,7 @@ pub unsafe extern "C" fn snek_print(val: SnekVal) -> SnekVal {
 /// The new heap pointer where the program should allocate the vector (i.e., the new value of `%r15`)
 ///
 #[export_name = "\x01snek_try_gc"]
-pub unsafe fn snek_try_gc(
+pub unsafe extern "C" fn snek_try_gc(
     count: isize,
     heap_ptr: *const u64,
     stack_base: *const u64,
@@ -96,23 +96,25 @@ pub unsafe fn snek_try_gc(
 /// This function should trigger garbage collection and return the updated heap pointer (i.e., the new
 /// value of `%r15`). See [`snek_try_gc`] for a description of the meaning of the arguments.
 #[export_name = "\x01snek_gc"]
-pub unsafe fn snek_gc(
+pub unsafe extern "C" fn snek_gc(
     heap_ptr: *const u64,
     stack_base: *const u64,
     curr_rbp: *const u64,
     curr_rsp: *const u64,
 ) -> *const u64 {
-    // println!("begin collection");
+    println!("begin collection");
     scan_stack(stack_base, curr_rbp, curr_rsp);
-    // snek_print_heap(heap_ptr);
-    // println!("end collection");
-    let new_heap_ptr = compact(heap_ptr);
+    snek_print_heap(heap_ptr);
+    snek_print_stack(stack_base, curr_rbp, curr_rsp);
+    println!("end collection");
+    let new_heap_ptr = compact(heap_ptr, curr_rsp, stack_base);
+    println!("end collection1231");
     // snek_print_heap(new_heap_ptr);
     new_heap_ptr
 }
 
-fn check_valid_addr(val: u64) -> bool {
-    if val & 0b111 == 1{
+unsafe fn check_valid_addr(val: u64) -> bool {
+    if val & 0b111 == 1 && val >= HEAP_START as u64 && val < HEAP_END as u64{
         if val == 1 {
             return false;
         } else {
@@ -153,8 +155,11 @@ unsafe fn mark(val: u64) {
     }
 }
 
-unsafe fn compact(cur_heap_top: *const u64) -> *const u64{
+unsafe fn compact(cur_heap_top: *const u64, curr_rsp: *const u64, stack_base: *const u64) -> *const u64{
     forward(cur_heap_top);
+
+    update_stack(curr_rsp, stack_base);
+
     update(cur_heap_top);
     let new_heap_ptr = mov(cur_heap_top);
     new_heap_ptr
@@ -177,6 +182,19 @@ unsafe fn forward(cur_heap_top: *const u64) {
             let length = *scan_ptr as usize;
             scan_ptr = scan_ptr.add(length + 1);
         }
+    }
+}
+unsafe fn update_stack(curr_rsp: *const u64, stack_base: *const u64) {
+    let mut ptr = curr_rsp;
+    while ptr <= stack_base {
+        let val = *ptr;
+        if check_valid_addr(val) {
+            let addr: *mut u64 = (val - 1) as *mut u64;
+            let new_ref = *addr;
+            let write_ptr: *mut u64 = ptr as *mut u64;
+            *write_ptr = new_ref + 1;
+        }
+        ptr = ptr.add(1);
     }
 }
 unsafe fn update(cur_heap_top: *const u64) {
@@ -239,8 +257,9 @@ unsafe fn mov(cur_heap_top: *const u64) -> *const u64{
 /// A helper function that can called with the `(snek-printstack)` snek function. It prints the stack
 /// See [`snek_try_gc`] for a description of the meaning of the arguments.
 #[export_name = "\x01snek_print_stack"]
-pub unsafe fn snek_print_stack(stack_base: *const u64, curr_rbp: *const u64, curr_rsp: *const u64) {
+pub unsafe extern "C" fn snek_print_stack(stack_base: *const u64, curr_rbp: *const u64, curr_rsp: *const u64) {
     let mut ptr = stack_base;
+    println!("print stack");
     println!("-----------------------------------------");
     while ptr >= curr_rsp {
         let val = *ptr;
@@ -251,8 +270,9 @@ pub unsafe fn snek_print_stack(stack_base: *const u64, curr_rbp: *const u64, cur
 }
 
 #[export_name = "\x01snek_print_heap"]
-pub unsafe fn snek_print_heap(heap_ptr: *const u64) {
+pub unsafe extern "C" fn snek_print_heap(heap_ptr: *const u64) {
     let mut ptr = HEAP_START;
+    println!("print heap");
     println!("-----------------------------------------");
     while ptr < heap_ptr {
         let val = *ptr;

@@ -1,0 +1,6 @@
+(let ((x (vec false true 17))
+      (y (vec 1 2)))
+     (block
+        (set! x (vec nil y nil))
+        (set! y nil)
+        (gc)))
