@@ -1,0 +1,120 @@
+(fun (merge_sort l)
+    (if (> (vec-len l) 1)
+        (let ((left_l (left l)) (right_l (right l)))
+            (block
+                (set! left_l (merge_sort left_l))
+                (set! right_l (merge_sort right_l))
+                (merge left_l right_l)
+            )
+        )
+        l
+    )
+)
+
+(fun (merge left right)
+   (let ((i 0) (j 0) (final (make-vec 0 nil)))
+        (block
+            (loop 
+                (if (< i (vec-len left))
+                    (if (< j (vec-len right))
+                        (if (<= (vec-get left i) (vec-get right j))
+                            (block
+                                (set! final (append final (vec-get left i)))
+                                (set! i (add1 i))
+                            )
+                            (block 
+                                (set! final (append final (vec-get right j)))
+                                (set! j (add1 j)) 
+                            )
+                        )
+                        (break final)
+                    )
+                    (break final)
+                )
+            )
+            (loop 
+                (if (< i (vec-len left))
+                    (block
+                        (set! final (append final (vec-get left i)))
+                        (set! i (add1 i))
+                    )
+                    (break final)
+                )
+            )
+            (loop 
+                (if (< j (vec-len right))
+                    (block
+                        (set! final (append final (vec-get right j)))
+                        (set! j (add1 j))
+                    )
+                    (break final)
+                )
+            )
+            final
+        )
+    )
+)
+
+(fun (append list item)
+    (let ((final (make-vec (+ (vec-len list) 1) nil)))
+        (let ((i 0))
+            (loop 
+                (if (< i (vec-len list))
+                    (block
+                        (vec-set! final i (vec-get list i))
+                        (set! i (add1 i))
+                    )
+                    (block 
+                        (vec-set! final i item)
+                        (break final)
+                    )
+                )
+            )
+        )
+    )
+)
+
+(fun (left list)
+    (let ((i 0) (final (make-vec 0 0)))
+        (loop 
+            (if (< i (/ (vec-len list) 2))
+                (block
+                    (set! final (append final (vec-get list i)))
+                    (set! i (add1 i))
+                )
+                (break final)
+            )
+        )
+    )
+)
+
+(fun (right list)
+    (let ((i (/ (vec-len list) 2)) (final (make-vec 0 0)))
+        (loop 
+            (if (< i (vec-len list))
+                (block
+                    (set! final (append final (vec-get list i)))
+                    (set! i (add1 i))
+                )
+                (break final)
+            )
+        )
+    )
+)
+
+(fun (mkreverse num)
+    (let ((final (make-vec num nil)) (i 0))
+        (loop
+            (if (< i num)
+                (block
+                    (vec-set! final i (- num i))
+                    (set! i (add1 i))
+                )
+                (break final)
+            )
+        )
+    )
+)
+
+
+(merge_sort (mkreverse input))
